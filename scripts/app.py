@@ -3,14 +3,23 @@ import pandas as pd
 import sqlite3
 import numpy as np
 import plotly.express as px
+import os
+
+# Debug prints to help check working directory and files
+st.write("Current working directory:", os.getcwd())
+st.write("DB file exists:", os.path.exists("db/nyc_mobility.db"))
+st.write("Lookup CSV exists:", os.path.exists("data/lookup/taxi_zone_lookup.csv"))
 
 # --- Caching data load for speed ---
 @st.cache_data(show_spinner=True)
 def load_data():
-    conn = sqlite3.connect(r"C:\Users\Ashwini\urban-mobility-dashboard\db\nyc_mobility.db")
+    db_path = "db/nyc_mobility.db"
+    lookup_path = "data/lookup/taxi_zone_lookup.csv"
+    
+    conn = sqlite3.connect(db_path)
     df = pd.read_sql("SELECT * FROM trips LIMIT 10000", conn)
     conn.close()
-    lookup_path = r"C:\Users\Ashwini\urban-mobility-dashboard\data\lookup\taxi_zone_lookup.csv"
+    
     try:
         zone_lookup = pd.read_csv(lookup_path)
         df = df.merge(
@@ -19,7 +28,8 @@ def load_data():
             left_on='PULocationID',
             right_on='LocationID'
         ).rename(columns={'Zone': 'pickup_zone'}).drop(columns=['LocationID'])
-    except Exception:
+    except Exception as e:
+        st.warning(f"Could not load zone lookup file: {e}")
         df['pickup_zone'] = df['PULocationID'].astype(str)
 
     df['pickup_datetime'] = pd.to_datetime(df['pickup_datetime'])
